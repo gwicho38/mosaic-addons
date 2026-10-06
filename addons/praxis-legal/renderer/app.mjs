@@ -1,5 +1,6 @@
 const question = document.querySelector("#question");
 const submit = document.querySelector("#ask-praxis");
+const checkConnection = document.querySelector("#check-connection");
 const status = document.querySelector("#status");
 const answer = document.querySelector("#answer");
 
@@ -8,16 +9,26 @@ function showStatus(message, error = false) {
   status.dataset.state = error ? "error" : "ready";
 }
 
+async function refreshConnection() {
+  try {
+    const servers = await window.addonAPI.mcp.listServers();
+    const praxis = servers.find((server) => server.name === "praxis-legal" && server.connected);
+    submit.disabled = !praxis;
+    showStatus(praxis ? "Praxis is connected." : "Connect the Praxis Legal MCP server in Mosaic settings first.", !praxis);
+  } catch {
+    submit.disabled = true;
+    showStatus("Could not check the Praxis connection.", true);
+  }
+}
+
 try {
   await window.addonAPI.init();
-  const servers = await window.addonAPI.mcp.listServers();
-  const praxis = servers.find((server) => server.name === "praxis-legal" && server.connected);
-  submit.disabled = !praxis;
-  showStatus(praxis ? "Praxis is connected." : "Connect the Praxis Legal MCP server in Mosaic settings first.", !praxis);
+  await refreshConnection();
 } catch {
   submit.disabled = true;
   showStatus("Could not check the Praxis connection.", true);
 }
+checkConnection.addEventListener("click", refreshConnection);
 
 submit.addEventListener("click", async () => {
   const text = question.value.trim();

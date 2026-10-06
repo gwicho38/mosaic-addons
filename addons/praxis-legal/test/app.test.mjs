@@ -11,18 +11,19 @@ function element() {
 }
 
 async function loadApp(connected = true) {
-  const elements = new Map([["#question", element()], ["#ask-praxis", element()], ["#status", element()], ["#answer", element()]]);
+  const elements = new Map([["#question", element()], ["#ask-praxis", element()], ["#check-connection", element()], ["#status", element()], ["#answer", element()]]);
   const calls = [];
+  let serverConnected = connected;
   globalThis.document = { querySelector: (selector) => elements.get(selector) };
   globalThis.window = { addonAPI: {
     init: async () => ({}),
     mcp: {
-      listServers: async () => [{ name: "praxis-legal", connected }],
+      listServers: async () => [{ name: "praxis-legal", connected: serverConnected }],
       callTool: async (...args) => { calls.push(args); return { content: [{ type: "text", text: "Praxis answer" }] }; },
     },
   } };
   await import(`../renderer/app.mjs?case=${Math.random()}`);
-  return { elements, calls };
+  return { elements, calls, connect: () => { serverConnected = true; } };
 }
 
 test("sends the question through the MCP tool and shows the answer", async () => {
@@ -37,4 +38,12 @@ test("sends the question through the MCP tool and shows the answer", async () =>
 test("disables the call when the MCP server is disconnected", async () => {
   const { elements } = await loadApp(false);
   assert.equal(elements.get("#ask-praxis").disabled, true);
+});
+
+test("enables the call after a server is connected later", async () => {
+  const { elements, connect } = await loadApp(false);
+  connect();
+  await elements.get("#check-connection").trigger("click");
+  assert.equal(elements.get("#ask-praxis").disabled, false);
+  assert.equal(elements.get("#status").textContent, "Praxis is connected.");
 });
