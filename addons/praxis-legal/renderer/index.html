@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Praxis Legal</title>
+    <style>
+      :root { font-family: system-ui, -apple-system, sans-serif; }
+      body { margin: 0; background: var(--background, #101015); color: var(--foreground, #f4f4f5); }
+      main { box-sizing: border-box; width: min(100%, 44rem); margin: 0 auto; padding: 2rem 1.25rem; }
+      h1 { margin: 0 0 .75rem; }
+      p { line-height: 1.5; }
+      .panel { padding: 1.25rem; border: 1px solid var(--border, #3f3f46); border-radius: .75rem; background: var(--card, #18181b); }
+      label { display: block; margin-bottom: .5rem; font-weight: 600; }
+      textarea { box-sizing: border-box; width: 100%; min-height: 7rem; border: 1px solid var(--border, #71717a); border-radius: .5rem; padding: .75rem; background: var(--background, #101015); color: var(--foreground, #f4f4f5); font: inherit; }
+      button { margin-top: .75rem; min-height: 2.75rem; border: 1px solid var(--primary, #8b5cf6); border-radius: .5rem; padding: .5rem 1rem; background: var(--primary, #6d28d9); color: #fff; font: inherit; cursor: pointer; }
+      button:disabled { opacity: .55; cursor: not-allowed; }
+      textarea:focus-visible, button:focus-visible { outline: 3px solid var(--primary, #8b5cf6); outline-offset: 2px; }
+      #status { min-height: 1.5rem; color: var(--muted-foreground, #a1a1aa); }
+      #status[data-state="error"] { color: #fda4af; }
+      #answer { white-space: pre-wrap; line-height: 1.5; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Praxis Legal</h1>
+      <p>Ask Praxis from Mosaic. This local proof uses test questions only. Do not include confidential client or matter facts.</p>
+      <section class="panel">
+        <label for="question">Question for Praxis</label>
+        <textarea id="question" maxlength="4000"></textarea>
+        <button id="ask-praxis" type="button" disabled>Ask Praxis</button>
+        <p id="status" role="status" aria-live="polite">Checking connection…</p>
+        <div id="answer" aria-live="polite"></div>
+      </section>
+    </main>
+    <script type="module" src="./app.mjs"></script>
+  </body>
+</html>

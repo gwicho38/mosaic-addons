@@ -1,0 +1,16 @@
+{
+  "manifestVersion": 1,
+  "id": "praxis-legal",
+  "name": "Praxis Legal",
+  "version": "0.1.0",
+  "description": "Ask the Praxis legal research orchestrator from Mosaic.",
+  "mountPoint": "tab",
+  "ipcNamespace": "praxis-legal",
+  "tab": {
+    "label": "Praxis Legal",
+    "icon": "Shield",
+    "order": 100
+  },
+  "permissions": ["mcp:read", "mcp:call"],
+  "renderer": { "entry": "renderer/index.html" }
+}
