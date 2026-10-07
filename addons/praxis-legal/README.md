@@ -1,42 +1,38 @@
-# Praxis Legal for Mosaic
+# Praxis Legal MCP for Mosaic
 
-We want a Mosaic agent to ask Praxis a public-law question and receive the orchestrator's answer. The add-on uses Mosaic's MCP tool path. Praxis exposes a user-bound `/v1/chat/completions` endpoint; Phoenix checks the signed-in user before it calls the private research orchestrator.
+Add Praxis as an MCP server. Ask your Mosaic agent to use `ask_praxis`; Praxis runs its research orchestrator and returns the answer to Mosaic chat.
+
+## Before / After
 
 **Before**
-
 ```mermaid
 flowchart LR
-    User --> MosaicAgent[Mosaic agent]
-    MosaicAgent --> MosaicModel[Mosaic model only]
+    User --> Form[Separate add-on question form]
+    Form --> Praxis
 ```
 
 **After**
-
 ```mermaid
 flowchart LR
-    User --> MosaicAgent[Mosaic agent]
-    MosaicAgent --> PraxisTool[ask_praxis MCP tool]
-    PraxisTool --> Phoenix[Praxis user-bound API]
-    Phoenix --> Policy[Current user and public-law policy]
-    Policy --> Orchestrator[Praxis public research lane]
-    Orchestrator --> Phoenix --> PraxisTool
-    PraxisTool --> MosaicAgent
+    User --> Chat[Mosaic AI Chat]
+    Chat --> Tool[ask_praxis MCP tool]
+    Tool --> API[User-bound Praxis API]
+    API --> Orchestrator[Praxis research orchestrator]
+    Orchestrator --> API --> Tool --> Chat
 ```
 
-The catalog add-on also has an **Ask Praxis** tab for a direct connection check. Mosaic's own agent can call the same MCP tool in chat. The tab uses `mcp:read` and `mcp:call`; the MCP server holds a reference to the user's Praxis key.
+This integration has no embedded website, separate question form, or Custom Endpoint agent setup. The catalog tab only checks whether the MCP server is connected and exposes `ask_praxis`. It requests only `mcp:read`.
 
-Mosaic's catalog tarball contains only the add-on renderer and manifest. Install this MCP server separately before using the tab or agent tool. Catalog installation does not register the MCP server.
+## Connect the MCP server
 
-## Local setup
-
-Install the MCP server's dependencies:
+The catalog tarball contains the manifest and renderer. It does **not** install the MCP server. Get this repository's source and install the server separately:
 
 ```sh
 cd addons/praxis-legal/mcp
-npm install
+npm ci
 ```
 
-Sign in to Praxis and create a Mosaic key at `/dashboard/mosaic`. Save the one-time key in 1Password. Register the server in Mosaic with your Praxis origin and its secret reference:
+Create a Mosaic key in your Praxis instance at `/dashboard/mosaic`. Save it in 1Password. With the 1Password CLI available and authorized, register the server:
 
 ```sh
 PRAXIS_BASE_URL=https://your-praxis-instance.example \
@@ -44,19 +40,27 @@ PRAXIS_MOSAIC_TOKEN_REF=op://your-vault/your-item/your-field \
 node setup.mjs
 ```
 
-The setup stores the URL and secret **reference** in Mosaic's MCP configuration. It does not store the token. The MCP server resolves the reference with `op read` when called. Refresh **Settings → MCP Servers**, then ask a Mosaic agent to use `ask_praxis` for a public-law question. You can also load this add-on from the Dev corner and use its tab to verify the tool response directly. Click **Check connection** in the tab after connecting the MCP server.
+The setup stores the origin and secret reference in Mosaic's MCP configuration. The server resolves the key using `op read` when called. Refresh **MCP Servers** and connect `praxis-legal`. It should expose `ask_praxis`.
 
-For direct chat without MCP, configure a **Custom** Mosaic agent with the same Praxis origin, model `praxis-legal`, and your user-bound key. Mosaic encrypts agent API keys at rest. Praxis keys expire after 30 days and can be revoked from `/dashboard/mosaic`. The endpoint uses `Core.Capabilities.public_legal_research/2`; it runs the public research lane without firm documents or graph scope. Ask public-law questions only. Do not include client or matter facts. Mosaic keeps chat history on the device.
+You can also add it manually in Mosaic: transport **stdio**, command your Node executable, args the absolute path to `mcp/server.mjs`, and the two environment values shown above. Use Node 20 or later.
 
-## Checks
+## Ask in Mosaic
+
+Open **AI Chat** with a configured Mosaic agent that can use MCP tools. For example:
+
+> Use ask_praxis to answer: What is the Rule 56 summary judgment standard?
+
+Mosaic calls the tool, which calls the user-bound Praxis API and returns the orchestrator's answer. Explicitly asking for the tool makes the intended route clear. An ordinary question without that instruction depends on the agent choosing the tool.
+
+The current key permits public-law research only. It does not grant firm-document or matter access. Do not include client or matter facts. Praxis keys expire after 30 days and can be revoked at `/dashboard/mosaic`. Mosaic retains chat history locally.
+
+## Checks and publication
 
 ```sh
-node --test addons/praxis-legal/test/*.test.mjs
+node --test addons/praxis-legal/test/*.test.mjs addons/praxis-legal/mcp/protocol.test.mjs
 node scripts/build-addon.mjs praxis-legal
 ```
 
-## Verified result
+The MCP protocol test checks initialization, tool discovery, and an `ask_praxis` call through a mock user-bound API. The status tests cover connected, disconnected, missing-tool, and failed-connection states.
 
-On 2026-10-06, the first local proof used an operator-only Fly proxy to reach the private sidecar. Mosaic's MCP client returned a 4,077-character Rule 56 answer (SHA-256 `b4af3f554739a0bebce4b890801f37240fdee45705d901deb35e54b3fc448e14`). A deterministic local model stub then called `ask_praxis` from AI Chat, received the tool output, and displayed a 5,259-character Praxis response (SHA-256 `7231fc165a67f180542f3e464476dd6b8e2f7929239466c48916aa2267d13200`). Those calls proved the desktop path; they predate the user-bound Phoenix API and are not proof of production authentication.
-
-The catalog entry is not published. A production model's independent choice to use the tool remains unverified. The add-on installed, activated, and rendered its tab in a fresh local Mosaic desktop profile. The tab still needs a connected MCP server and a live user-bound Praxis key for a production answer. Catalog installation does not install the MCP server; users must follow the separate setup above.
+Earlier desktop testing proved Mosaic chat invoking the MCP tool with a deterministic test model. A live user-bound production answer was separately verified through the MCP tool. A production model's independent tool selection is not yet proven. These are local proofs; catalog publication and a fresh catalog-install test remain pending upstream review.

@@ -2,8 +2,8 @@
   "manifestVersion": 1,
   "id": "praxis-legal",
   "name": "Praxis Legal",
-  "version": "0.1.0",
-  "description": "Ask the Praxis legal research orchestrator from Mosaic.",
+  "version": "0.2.0",
+  "description": "Connect the Praxis MCP server and use ask_praxis from Mosaic chat.",
   "mountPoint": "tab",
   "ipcNamespace": "praxis-legal",
   "tab": {
@@ -11,6 +11,10 @@
     "icon": "Shield",
     "order": 100
   },
-  "permissions": ["mcp:read", "mcp:call"],
-  "renderer": { "entry": "renderer/index.html" }
+  "permissions": [
+    "mcp:read"
+  ],
+  "renderer": {
+    "entry": "renderer/index.html"
+  }
 }

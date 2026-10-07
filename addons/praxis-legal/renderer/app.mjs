@@ -1,8 +1,5 @@
-const question = document.querySelector("#question");
-const submit = document.querySelector("#ask-praxis");
-const checkConnection = document.querySelector("#check-connection");
 const status = document.querySelector("#status");
-const answer = document.querySelector("#answer");
+const checkConnection = document.querySelector("#check-connection");
 
 function showStatus(message, error = false) {
   status.textContent = message;
@@ -12,12 +9,18 @@ function showStatus(message, error = false) {
 async function refreshConnection() {
   try {
     const servers = await window.addonAPI.mcp.listServers();
-    const praxis = servers.find((server) => server.name === "praxis-legal" && server.connected);
-    submit.disabled = !praxis;
-    showStatus(praxis ? "Praxis is connected." : "Connect the Praxis Legal MCP server in Mosaic settings first.", !praxis);
+    const praxis = servers.find(server => server.name === "praxis-legal" && server.connected);
+    if (!praxis) {
+      showStatus("Add and connect praxis-legal in MCP Servers, then check again.", true);
+      return;
+    }
+    const tools = await window.addonAPI.mcp.listTools("praxis-legal");
+    const available = tools.some(tool => tool.name === "ask_praxis");
+    showStatus(available
+      ? "Connected: ask_praxis is available. Open AI Chat and ask your agent to use ask_praxis."
+      : "Praxis is connected but ask_praxis is missing. Check the MCP server setup.", !available);
   } catch {
-    submit.disabled = true;
-    showStatus("Could not check the Praxis connection.", true);
+    showStatus("Could not check the Praxis MCP connection. Check MCP Servers and try again.", true);
   }
 }
 
@@ -25,29 +28,6 @@ try {
   await window.addonAPI.init();
   await refreshConnection();
 } catch {
-  submit.disabled = true;
-  showStatus("Could not check the Praxis connection.", true);
+  showStatus("Could not initialize the connection check.", true);
 }
 checkConnection.addEventListener("click", refreshConnection);
-
-submit.addEventListener("click", async () => {
-  const text = question.value.trim();
-  if (!text || text.length > 4_000) {
-    showStatus("Enter a question of 1–4,000 characters.", true);
-    return;
-  }
-  submit.disabled = true;
-  answer.textContent = "";
-  showStatus("Asking Praxis…");
-  try {
-    const result = await window.addonAPI.mcp.callTool("praxis-legal", "ask_praxis", { question: text });
-    const response = result?.content?.filter((item) => item.type === "text").map((item) => item.text).join("\n\n");
-    if (result?.isError || !response) throw new Error(response || "Praxis returned no answer.");
-    answer.textContent = response;
-    showStatus("Praxis answered.");
-  } catch (error) {
-    showStatus(error.message || "Praxis could not answer.", true);
-  } finally {
-    submit.disabled = false;
-  }
-});

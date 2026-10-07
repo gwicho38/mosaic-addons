@@ -1,49 +1,45 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFileSync } from "node:fs";
 
-function element() {
-  const handlers = new Map();
-  return {
-    value: "", textContent: "", dataset: {}, disabled: false,
-    addEventListener(name, handler) { handlers.set(name, handler); },
-    async trigger(name) { await handlers.get(name)?.(); },
-  };
-}
-
-async function loadApp(connected = true) {
-  const elements = new Map([["#question", element()], ["#ask-praxis", element()], ["#check-connection", element()], ["#status", element()], ["#answer", element()]]);
-  const calls = [];
-  let serverConnected = connected;
-  globalThis.document = { querySelector: (selector) => elements.get(selector) };
+async function loadApp(connected, tools = [{ name: "ask_praxis" }], fails = false) {
+  const elements = new Map(["#status", "#check-connection"].map(id => [id, {
+    textContent: "", dataset: {}, addEventListener(event, fn) { this.handler = fn; },
+  }]));
+  globalThis.document = { querySelector: selector => elements.get(selector) };
   globalThis.window = { addonAPI: {
     init: async () => ({}),
     mcp: {
-      listServers: async () => [{ name: "praxis-legal", connected: serverConnected }],
-      callTool: async (...args) => { calls.push(args); return { content: [{ type: "text", text: "Praxis answer" }] }; },
+      listServers: async () => { if (fails) throw new Error("offline"); return [{ name: "praxis-legal", connected }]; },
+      listTools: async () => tools,
     },
   } };
   await import(`../renderer/app.mjs?case=${Math.random()}`);
-  return { elements, calls, connect: () => { serverConnected = true; } };
+  return elements;
 }
 
-test("sends the question through the MCP tool and shows the answer", async () => {
-  const { elements, calls } = await loadApp();
-  assert.equal(elements.get("#ask-praxis").disabled, false);
-  elements.get("#question").value = "What is the rule?";
-  await elements.get("#ask-praxis").trigger("click");
-  assert.deepEqual(calls, [["praxis-legal", "ask_praxis", { question: "What is the rule?" }]]);
-  assert.equal(elements.get("#answer").textContent, "Praxis answer");
+test("MCP-only catalog has no chat form or agent permissions", () => {
+  const html = readFileSync(new URL("../renderer/index.html", import.meta.url), "utf8");
+  const manifest = JSON.parse(readFileSync(new URL("../manifest.json", import.meta.url)));
+  assert.doesNotMatch(html, /textarea|prepare-chat|ask-praxis/);
+  assert.deepEqual(manifest.permissions, ["mcp:read"]);
 });
-
-test("disables the call when the MCP server is disconnected", async () => {
-  const { elements } = await loadApp(false);
-  assert.equal(elements.get("#ask-praxis").disabled, true);
+test("connected server with ask_praxis points users to Mosaic chat", async () => {
+  const elements = await loadApp(true);
+  assert.match(elements.get("#status").textContent, /ask_praxis.*AI Chat/);
+  await elements.get("#check-connection").handler();
+  assert.equal(elements.get("#status").dataset.state, "ready");
 });
-
-test("enables the call after a server is connected later", async () => {
-  const { elements, connect } = await loadApp(false);
-  connect();
-  await elements.get("#check-connection").trigger("click");
-  assert.equal(elements.get("#ask-praxis").disabled, false);
-  assert.equal(elements.get("#status").textContent, "Praxis is connected.");
+test("disconnected MCP requires setup", async () => {
+  const elements = await loadApp(false);
+  assert.match(elements.get("#status").textContent, /MCP Servers/);
+  assert.equal(elements.get("#status").dataset.state, "error");
+});
+test("server without ask_praxis is not reported ready", async () => {
+  const elements = await loadApp(true, []);
+  assert.equal(elements.get("#status").dataset.state, "error");
+});
+test("connection error is visible", async () => {
+  const elements = await loadApp(false, [], true);
+  assert.equal(elements.get("#status").dataset.state, "error");
 });
